@@ -1,0 +1,206 @@
+---
+output: html_document
+---
+Homework 5 - Team 10 JumpingJukes
+========================================================
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+# Check for libraries and install #
+listOfPackages <- c("dplyr", "ggplot2",  "wordcloud", "scales", "reshape2")
+NewPackages <- listOfPackages[!(listOfPackages %in% installed.packages()[,"Package"])]
+if(length(NewPackages)>0) {install.packages(NewPackages,repos="http://cran.rstudio.com/")}
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(wordcloud)
+library(scales)
+library(reshape2)
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+source("Task_1_SparkR.R")
+source("Task_2_SparkR.R")
+source("Task_3_SparkR.R")
+```
+
+**Task 1**
+
+For the first task, we wrote SparkR code to group all the Reddit data by its subreddit and then count the number of times that each of these subreddits occurs.
+
+In order to accomplish this we used the following process:  
+1. Set a file path for the data using `jsonFile()`.  
+2. Define the query using `group_by()` to put all the subreddits together and `count()` to return the number of each subreddit within the data.  
+3. Return the data frame that matching this query using the `collect()` function.  
+4. Sort the data frame using the `order()` function with `decreasing = TRUE` so that the data frame lists the subreddits from most to least popular.   
+5. Return the head of this data frame to give the top 25 subreddits.  
+6. Repeat this same process for each of the months January through May.   
+
+In place of step 6, we could also have used a for loop. However, given the demands on the server with this project, it made more sense to complete each month individually whenever space in the queue was available. With the steps outlined above, we saved one data frame for each month. We were then able to use these Rdata files to create billboards showing the change in the top subreddits across the period.
+
+Once we complete the above process, we get a dataframe including the subreddit and counts (number of time it is listed as an entry) in descending order for each month. We add a rank column from 1:25 for each month. A function is then defined to compare two dataframes and check if subreddit in dataframe 2 is also in dataframe 1. If so, the rank for the subreddit from dataframe 1 is returned else "NA" is returned. The function is used to take a dataframe for the particular month and retrive the previous month ranking for the subreddit. After this some datacleaning is performed we get billboard style dataframe including the subreddit, current ranking and previous month ranking for each month. Below is the code all well as billstyle dataframes for January through May.
+
+```{r, echo = FALSE}
+
+# load saved files #
+load("Subreddits_Jan.Rdata")
+load("Subreddits_Feb.Rdata")
+load("Subreddits_Mar.Rdata")
+load("Subreddits_Apr.Rdata")
+load("Subreddits_May.Rdata")
+
+# Add ranks #
+topJan$rank = c(1:nrow(topJan))
+topFeb$rank = c(1:nrow(topFeb))
+topMar$rank = c(1:nrow(topFeb))
+topApr$rank = c(1:nrow(topFeb))
+topMay$rank = c(1:nrow(topFeb))
+
+# Function to get previous month ranks #
+get_rank = function(df1, df2){
+prev_rank = 0
+for(i in 1:nrow(df1)){
+  if(any(df1[i,1]==df2[,1])){
+    prev_rank[i] = df1[which(df1[i,1]==df2[,1]),3]
+  }
+  else{ prev_rank[i] =  NA }
+  }
+return(prev_rank)
+}
+
+# add in previous month ranks #
+topJan$previousmonthrank = NA
+topFeb$previousmonthrank = get_rank(topJan, topFeb)
+topMar$previousmonthrank = get_rank(topFeb, topMar)
+topApr$previousmonthrank = get_rank(topMar, topApr)
+topMay$previousmonthrank = get_rank(topApr, topMay)
+
+# Remove the counts column#
+topJan = topJan[,-2]
+topFeb = topFeb[,-2]
+topMar = topMar[,-2]
+topApr = topApr[,-2]
+topMay = topMay[,-2]
+
+# display the billboard style dataframes #
+print(topJan)
+print(topFeb)
+print(topMar)
+print(topApr)
+print(topMay)
+```
+
+
+**Task 2**
+
+For the second task, we wrote SparkR code to group the Reddit data in January `RC_2015-01.json` by `created_utc` and then count the number of Reddit comments over the entire time period. Then we apply function `as.POSIXct` to change the format of `created_utc` by using `1970-01-01` as the origin and `GMT` as the time zone. Next, we aggregate the counts by hour applying function `aggregate` to sum the number of Reddit comments to an hourly level. Then we create a new column to represent the day of week and hour by applying function `format`. Then we create two plots using the data frame we created above. The first plot shows the frequency of Reddit comments over the entire time period (aggregate to an hourly level). And the second plot shows the frequency of comments over the days of the week (data should again be at an hour level). 
+
+```{r, echo = FALSE}
+# load the data frame with count of comments for the whole period
+load("Post_Freq.Rdata")
+countPeriod = ggplot(resHour, aes(date, count)) + 
+  geom_line(colour="black") +
+  scale_x_datetime(breaks = date_breaks("7 days")) +
+  ggtitle("Counts of Reddit Comments in Jan 2015")
+countPeriod
+```
+From the first plot, the pattern of count of Reddit comments for each day looks similar. It reaches the peak in the evening at around 18:00-22:00 and then drops down in the morning. For the whole January period, the count of count of Reddit comments reach the highest on 2015-01-13, and the lowest at 2015-01-01. In every seven-day period, there is ups and downs. It may have something to do with the different amount of usage on weekdays and weekends.
+
+```{r, echo = FALSE}
+# load the data frame with count of comments for each day of week
+load("Post_Freq_Dow.Rdata")
+countDow = ggplot(resHourDay, aes(dow, count)) + 
+  geom_line(aes(group = 1),colour = "black") +
+  geom_point(size = 2, colour = "red") +
+  xlab("Day of Week") +
+  scale_x_discrete(breaks = resHourDay$dow[seq(13,168,24)], labels = c("Sun","Mon","Tue","Wed","Thur","Fri","Sat")) +
+  ggtitle("Counts of Reddit Comments over the days of the week in Jan 2015")
+countDow
+```
+From the second plot, we can find that the number of comments on Friday evening is the largest. And it seems that start from Sunday morning the total number of comments for each day keeps growing and then drops down at Saturday midnight.
+
+Then we subset the original data frame only counting gilded comments. To achieve this goal, we apply `filter` to the data frame using condition `j$gilded == 1`. The following approaches are similar as the approaches for non-subsetting situation. Then we recreate the above two plots using data frame for counts of gilded comments.
+
+```{r, echo = FALSE}
+# load the data frame with count of gilded comments for the whole period
+load("Post_Freq_Gilded.Rdata")
+countPeriodGilded = ggplot(resHourGilded, aes(date, count)) + 
+  geom_line(colour="black") +
+  scale_x_datetime(breaks = date_breaks("7 days")) +
+  ggtitle("Counts of Gilded Reddit Comments in Jan 2015")
+
+countPeriodGilded
+```
+
+From the plot for counts of gilded Reddit comments in January, we can tell that the number of gilded comments is only a small amount of the total comments. However, the volatility of the number of comments is more intense compared with the first plot. And it reaches the peak on 2015-01-07.
+
+```{r, echo = FALSE}
+# load the data frame with count of gilded comments for each day of week
+load("Post_Freq_Gilded_Dow.Rdata")
+countDowGilded = ggplot(resHourDayGilded, aes(dow, count)) + 
+  geom_line(aes(group = 1),colour = "black") +
+  geom_point(size = 2, colour = "red") +
+  xlab("Day of Week") +
+  scale_x_discrete(breaks = resHourDayGilded$dow[seq(13,168,24)], labels = c("Sun","Mon","Tue","Wed","Thur","Fri","Sat")) +
+  ggtitle("Counts of Gilded Reddit Comments over the days of the week in Jan 2015")
+countDowGilded
+```
+From the plot for counts of gilded Reddit comments over the days of the week, the overall pattern looks similar to the second plot above except that on Tuesday evening, there is a small peak of the count of comments.
+
+**Task 3**
+
+For task 3, after reading in the February data set, we use SQL commands to select the comments for Feb 2, 14 and 20 and to remove any NULL characters from the comments.  The NULL characters typically arose in any URLs that were posted by Reddit users and did not allow us to parse the text, since there were embedded nulls.  After creating these three SQL tables, one for each date, we converted them to RDD format, then filterted using regular expressions to count the occurence of 10 different words:
+
+"flower", "chocolate", "love", "valentine", "hug", "kiss", "heart", "lonely", "time" and "government"
+
+These words seem like they should be mentioned more frequently on Valentine's day than on other random days in February, so we wanted to test if this was the case.  Additionally, "time" and "government" are among the most mentioned words in the English language, so we wanted to include some reference words that might be similar on all days as a further comparison.
+
+
+```{r}
+#load the data frames with the counts and frequency#
+load("Feb_2.Rdata")
+load("Feb_14.Rdata")
+load("Feb_20.Rdata")
+#Change rownames of data frames to each date#
+rownames(Feb_2) = "Feb_2"
+rownames(Feb_14) = "Feb_14"
+rownames(Feb_20) = "Feb_20"
+
+#View the counts for each day#
+Feb_2
+Feb_14
+Feb_20
+
+```
+
+
+Surprisingly, only Valentine and flower appear to be mentioned more on Valentine's day than on Feb 2 and Feb 20.  Valentine is mentioned more than 10 times as often on Valentine's day as compared to Feb 2 and 20 and flower is mentioned about twice as often on Valentine's day.  Chocolate is also mentioned slightly more often on Valentine's day, while love, kiss, hug, heart, time and government are mentioned less on Valentine's day than on Feb 2 and Feb 20.  Lonely is mentioned slightly more on Valentine's day.  The wordclouds for each day, as well as segmented bar plots showing the occurence of each word by day are below.  On all days, time is the most mentioned word of those that we considered.
+
+
+```{r}
+#Plot word clouds for each day#
+library(wordcloud)
+wordcloud(colnames(Feb_2), Feb_2)
+wordcloud(colnames(Feb_14), Feb_14)
+wordcloud(colnames(Feb_20), Feb_20)
+
+library(reshape2)
+#Add stacked bar plot for each word#
+words = rbind(Feb_2, Feb_14, Feb_20)
+words$day = rownames(words)
+
+words.m <- melt(words,id.vars = "day") ## just melt(dat) should work
+
+ggplot(words.m, aes(x = variable,y = value, fill = day)) +
+    geom_bar(stat = "identity") + ggtitle("Word Frequency for Feb 2, 14 and 20")
+```
+
+
+
+
+
+

@@ -1,0 +1,398 @@
+Homework 1 - Team 10 JumpingJukes
+========================================================
+
+```{r}
+source("graph.R")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**The is_valid function**
+
+For the `is_valid` function, the input is a graph `g` and the output is a logical value, equal to `TRUE` if the input is a graph and `FALSE` if not.  The function sequentially checks each of the six criteria to determine if the input `g` is a graph.  If a test fails at any step, the function stops and returns `FALSE`, since `g` must meet all conditions to be considered a graph.  If the graph passes a step, it proceeds to the next step.  The six steps that we check in order are:
+
+1. Check if the input is a list of lists. First check if `g` is a list.  If the input is a list, we get the number of verticies, then check that `g` is a list of lists.
+
+2. Check if the names of the verticies of the list are all unique and store the names of all the verticies.
+
+3. Check that each secondary list contains only edges and weights vectors that are of the appropriate type.
+The first elements in the list for each vertex are the edges, and they should be `integers` or `NULL`.  The second elements in the list for each vertex are the weights, they should be `doubles` or `NULL`.  The edges and weights are `NULL` if the vertex does not connect to any other verticies.
+
+4. Check that all edges have weights.  
+
+5. Check that all weights are greater than 0.
+
+6.  Check that there are not any edges to non-existent vertices. Assume that vertices are labeled as `integers` in numerical order.
+
+If all six of these conditions are met, `g` is a graph and `is_valid` returns `TRUE`.
+
+Sample code:
+Consider two graphs, `graph1` and `graph2` below:
+
+```{r}
+graph1 = list(A = list(edges   = c(2L),
+                       weights = c(1 )),
+              B = list(edges   = c(3L),
+                       weights = c(1 )),
+              C = list(edges   = c(5L),
+                       weights = c(1 )),
+              D = list(edges   = c(2L),
+                       weights = c(1 )),
+              E = list(edges   = c(4L,6L),
+                       weights = c(1,1  )),
+              F = list(edges   = c(),
+                       weights = c())
+             )
+graph2 = list(A = list(edges   = c(2L),
+                       weights = c(1 )),
+              A = list(edges   = c(3L),
+                       weights = c(1 ))
+             )
+```
+
+`graph1`  is a valid graph, so `is_valid(graph1)` will return `TRUE`.  `graph1` is a list of lists, the names of the verticies are all unique, the secondary list contains edges that are integers and weights that are numeric, all edges have weights and they are all greater than 0 and there are no edges to nonexistent verticies.
+
+```{r}
+is_valid(graph1)
+```
+
+
+`graph2` is not a valid graph, since the two verticies have the same label.  Thus, `is_valid(graph2)` returns `FALSE`.
+
+```{r}
+is_valid(graph2)
+```
+
+
+**The is_undirected function**
+
+Since graphs sometimes can be very complicated, we were trying to find a more practical way to represent them. We are using an **adjacency matrix** contained in the helper function `adjacency_matrix` to represent the graphs. We got this algorithm from http://aix1.uottawa.ca/~jkhoury/graph.htm.
+
+In order to create our **adjacency matrix**:
+
+* Given a graph G with n vertices v1,...,vn, we define the **adjacency matrix** of G with respect to the enumeration v1,...,vn of the vertices as being the n by n matrix A=[a(ij)] defined by    
+    + a(ij) = 1, if there is an edge from vi to vj    
+    + a(ij) = 0, otherwise      
+
+* The following theorem gives one important use of powers of the adjacency matrix of a graph:
+ 
+    + If A is the adjacency matrix of a graph G (with vertices v1,...,vn, the (ij) entry of A^r represents the number of distinct r-walks from vertex vi to vertex vj in the graph.
+
+In our helper function `adjacency_matrix`, the **adjacency matrix** is constructed in a slightly different way. In stead of setting a(ij) = 1 when there is an edge from vi to vj, we set a(ij) = weights(ij) which indicates the weights of the edge from vi to vj. In this case, if the (ij) entry of A^r is positive, it means there is a path of r-walks from vertex vi to vertex vj in the graph.
+
+To examine how this **adjacency matrix** is applied in the function `is_undirected`, we go over a brief example below. 
+
+In this example we define `graph3` as:
+
+```{r}
+graph3 = list(A = list(edges   = c(2L, 3L),
+                       weights = c(10, 10 )),
+              B = list(edges   = c(1L, 3L),
+                       weights = c(10, 10 )),
+              C = list(edges   = c(1L, 2L),
+                       weights = c(10, 10 ))
+              )
+```
+
+We can use our `adjacency_matrix` function to express this graph in matrix form.
+
+```{r}
+adjacency_matrix(graph3)
+```
+
+We now see a matrix showing the edges and weights between each vertex of the graph. A graph is undirected if every edge has a complementary directed edge with the same weight in the opposite direction. Thus, if `graph3` is undirected, its adjacency matrix will be exactly equal to its transpose meaning that every edge running between a vertex will have an identical weight in the opposite direction.  
+
+We can see that this is true by examining the transpose of our adjacency matrix for `graph3`.
+
+```{r}
+t(adjacency_matrix(graph3))
+```
+
+Thus, taking the transpose is essentially reversing the graph wherein the rows become the columns of the original matrix. In the above example, the first vertex has an edge to the third vertex with weight 10. When this row becomes the column, this puts this entry as of weight 10 as the edge from the third vertex to the first. If this is equal is all cases, the graph will obviously meet the definition of undirected. Therefore, this method provides a very efficient means of checking if a graph is undirected. 
+
+Now, we examine how this **adjacency matrix** is applied within our funciton `is_undirected`. 
+
+For the funciton `is_undirected`.
+
+* Input - `g`, a graph object.
+
+* Output - `TRUE` if the graph is undirected, `FALSE` if not.
+
+* Description - Check if `g` is a valid graph. If this is true then determine if graph `g` is undirected. 
+    
+Here is how `is_undirected` works.    
+
+1.  Call `is_valid` to check the validity of the graph. If the graph does not meet all requirements, then we throw an error.  
+2.  Construct an adjacency matrix called `ajmatrix` to represent the graph using the helper funciton `adjacency_matrix`.  
+3.  Take the tranpose of our `ajmatrix` saving it as `ajmatrix.trans`  
+4.  Check whether `ajmatrix` and `ajmatrix.trans` are the same using the `identical` argument. This returns `TRUE` if the two matrix objects are identical.
+5.  If the are identical, the graph `g` is undirected and our function returns `TRUE`. If the are not, the graph 'g' is directed and our function returns `FALSE`.
+
+Finally, we examine two examples to see how the `is_undirected` function is applied.
+
+If we define `graph4` to be:
+
+```{r}
+graph4 = list(A = list(edges   = c(2L),
+                       weights = c(14)),
+              B = list(edges   = c(3L,4L),
+                       weights = c(23,13)),
+              D = list(edges   = c(1L),
+                       weights = c(5) ),
+              F = list(edges   = c(1L,5L),
+                       weights = c(43,33)),
+              N = list(edges   = c(1L,2L,4L),
+                       weights = c(33,22,11))
+             )
+```
+
+We can clearly see that the graph is directed as there is at least one edge (in this case all edges) that do not have a complementary directed edge with the same weight in the opposite direction.
+
+Calling our function on this graph:
+```{r}
+is_undirected(graph4)
+```
+We will get a return value of `FALSE` because the graph is not undirected. 
+
+
+If we define `graph5` to be:
+
+```{r}
+graph5 = list(A = list(edges   = c(2L, 3L, 4L),
+                       weights = c(10, 10, 15 )),
+              B = list(edges   = c(1L, 3L),
+                       weights = c(10, 10 )),
+              C = list(edges   = c(1L, 2L, 4L),
+                       weights = c(10, 10, 40 )),
+              E = list(edges   = c(1L, 3L),
+                       weights = c(15, 40))
+              )
+
+```
+
+We can clearly see that the graph is directed as there is at every edge has a complementary directed edge with the same weight in the opposite direction.
+
+Calling our function on this graph:
+```{r}
+is_undirected(graph5)
+```
+We will get a return value of `TRUE` because the graph is undirected. 
+
+**The is_isomorphic function**
+
+The graph isomorphism function checks if two graphs are isomorphic, i.e all vertices, edges and weights of the graphs are identical. The graph vertices are compared by their labels and not indexes. We shall use the following graphs to demonstrate our approach to the the fuction. There are essentially 4 steps.
+
+1. We first check if the graphs are valid using the `is_valid()` function. If they are not valid, then the function is truncated and an error message is returned.
+
+2. If both graphs are valid, then we check if both graphs have the same number of vertices. If they dont, then we readily conclude that the given graphs are not isomorphic, so the function returns `FALSE` right away.
+
+3. If both graphs are valid and have the same number of vertices, the we check if both graphs have the similar vertex labels. If one graph has the vertex labels {A,B,C} and the other graph has the vertex labels {A,B,D}, then we know that they are not isomorphic, as graphs vertices are compared by the labels. If the graphs dont have similar vertex labels, the function return `FALSE` right away.
+
+4. Once we know that the graphs have the same number of vertices and the similar vertex label, then they have passed the elementary isomorphic test. Now we proceed to assess each vertex in each graph individually. The basic methodology is to pick a vertex with label "X" in graph 1, extract it edges and weights to a list `L1`, then pick the same vertex "X" in graph 2 and then extract its edges and weights to a list `L2`. If `L1` and `L2` are not identical (i.e are not one and the same set), then graphs are determined to be not isomorphic. Below I shall describe the algorithm in detail, using two graphs that are isomorphic.
+
+```{r}
+graph6 = list(A = list(edges   = c(2L, 3L),
+                       weights = c(2, 3)),
+              B = list(edges   = c(),
+                       weights = c()),
+              C = list(edges   = c(),
+                       weights = c())
+             )
+
+graph7 = list(B = list(edges   = c(),
+                       weights = c()),
+              A = list(edges   = c(1L, 3L),
+                       weights = c(2, 3)),
+              C = list(edges   = c(),
+                       weights = c())
+             )
+```
+
+Going forward I shall use the `g1` and `g2` to denote the graphs.
+
+ 1)  Pick the `i` vertex in `g1` and determine its label (Eg: g1[i] = "A").
+ 
+ 2)  Determine the edges associated with vertex `"A"` in `g1`. It will be a numeric vector containing 1 or several values (Eg: edges of g1[i] = "A" - {2L,3L}).
+ 
+ 3)  Determine the weights of the edges in step 2) (eg: weights for edges {2L, 3L} of g1[i] = "A" - {2, 3}).
+ 
+ 4)  Determine the label associated with the edges in step 2) and create a list of list `L1` combining the edge label with its weight (eg: for g1[i] = "A" with edges {2L, 3L} and weights {2, 3} will translate to list[list["B", 2], list["C", 3]]).
+ 
+ 5)  Pick the vertex in `g2` with the same label as that of the `i` vertex in g1 (Eg: g2[k] = "A")).
+ 
+ 6)  Determine the edges associated with vertex `"A"` in `g2`. (Eg: edges of g2[k] = "A" - {1L,3L}).
+ 
+ 7)  Determine the weights of the edges in step 6) (eg: weights for edges {1L, 3L} of g2[k] = "A" - {2, 3}).
+ 
+ 8)  Determine the label associated with the edges in step 2) and create a list of list `L2` combining the edge label with its weight (eg: for g2[k] = "A" with edges {1L, 3L} and weights {2, 3} will translate to list[list["C", 2], list["B", 3]]).
+ 
+ 9)  Determine if every element in list `L1` is in list `L2` and vice versa. We essentially test that both lists are one and same set of values. If we find that there is a mistmatch between the sets, we return FALSE immediately.
+ 
+ 10)  This process is looped for every vertex in `g1`. If the loop is completed, we return TRUE.
+
+```{r}
+is_isomorphic(graph6, graph7)
+```
+As you can see both `graph6` and `graph7` are isomorphic
+
+ 
+Below are two graphs that are not isomorphic. The vertices and edges are the same but the weights are different
+```{r}
+graph8 = list(A = list(edges   = c(2L, 3L),
+                       weights = c(2, 3)),
+              B = list(edges   = c(),
+                       weights = c()),
+              C = list(edges   = c(),
+                       weights = c())
+             )
+
+graph9 = list(B = list(edges   = c(),
+                       weights = c()),
+              A = list(edges   = c(1L, 3L),
+                       weights = c(3, 2)),
+              C = list(edges   = c(),
+                       weights = c())
+             )
+is_isomorphic(graph8, graph9) 
+```
+
+
+**The is_connected function** 
+
+* Input - `g`, a graph object; `v1`, a vertex label in `g`; `v2`, a vertex label in `g`.
+
+* Output - `TRUE` if there is a path from `v1` to `v2` in `g`, `FALSE` if not.
+
+* Description - Determine if there is any path between vertex `v1` and vertex `v2` in graph `g`. If `v1` or `v2` are not in `g` then throw an error.
+    
+Since graphs sometimes can be very complicated, we are trying to find a more practical way to represent them. We are using an **adjacency matrix** to represent the graphs. Further detail on how we created this and how it works can be seen in the description in the `is_undirected` funciton above.
+
+We applied an **adjacency matrix** in the function `is_connected` using our helper function `adjacency_matrix`.    
+Here is how `is_connected` works.    
+
+1.  Call `is_valid` to check the validity of the graph. If the graph does not meet all requirements, then throw an error.  
+2.  Check if `v1` or `v2` are in `g`. If not, then throw an error.  
+3.  Construct an adjacency matrix `ajmatrix` to represent the graph.  
+4.  Use a looping method to check if there is a path from `v1` to `v2` with iteration times = the number of vertices.   
+5.  In the iteration of each loop, check if the element in the matrix which indicates there is a path between vertex `v1` and vertex `v2` is positive. Return `TRUE` if it is positive.  
+6. At the end of the loop, return `FALSE`.
+
+Sample code:
+Consider two graphs, `graph10` and `graph11` below:
+```{r}
+graph10 = list(A = list(edges   = c(2L),
+                       weights = c(1 )),
+              B = list(edges   = c(3L),
+                       weights = c(1 )),
+              C = list(edges   = c(5L),
+                       weights = c(1 )),
+              D = list(edges   = c(2L),
+                       weights = c(1 )),
+              E = list(edges   = c(4L,6L),
+                       weights = c(1,1  )),
+              F = list(edges   = c(),
+                       weights = c())
+             )
+
+graph11 = list(A = list(edges   = c(2L),
+                       weights = c(14)),
+              B = list(edges   = c(3L,4L),
+                       weights = c(23,13)),
+              D = list(edges   = c(1L),
+                       weights = c(5) ),
+              F = list(edges   = c(1L,5L),
+                       weights = c(43,33)),
+              N = list(edges   = c(1L,2L,4L),
+                       weights = c(33,22,11))
+             )
+```
+We test `is_connected` by using `graph10` and `graph11`. In `graph10`, there is a path from `A` to `E`, which is `A`->`B`->`C`->`E`. And there is no path from `E` to `A`. In `graph11`, there is a path from `A` to `N`, which is `A`->`B`->`F`->`N`. And the output of   `is_connected` shows the expected result.
+```{r}
+is_connected(graph10, "A", "E")
+is_connected(graph10, "E", "A")
+is_connected(graph11, "A", "N")
+```
+**The shortest_path function**
+ 
+For the `shortest_path` function, we based our approach on Dijkstra's Algorithm with C code provided from: http://www.codewithc.com/dijkstras-algorithm-in-c/ .  We converted the ideas from this C code into an R implementation to construct this algorithm.  We also referenced the Wikipedia article on Dijkstra's Algorithm, https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm, especially for the explanation of the implementation of the algorithm.  
+ 
+`shortest_path` returns the list of verticies that is the shortest path between two verticies, `v1` and `v2`, in graph `g`. The inputs to `shortest_path` are a graph `g`, `v1` the source vertex and `v2` the target vertex.  
+ 
+We use a  function, `sum_weight` in `shortest_path`. `sum_weight` computes the sum of all the weights in a graph. We only call this function once we know that the input is a valid graph, so we do not need to check if `g` is a valid graph. 
+ 
+We first check if `g` is a valid graph using `is_valid` and then that `v1` is connected to `v2` using `is_connected`.  If `g` is not a valid graph, the function returns and error and if `v1` and `v2` are not connected, the function returns a null vector.
+ 
+The overall algorithm is as follows.  We first create an adjacency matrix for our input graph `g`.  The rows of the adjency matrix are the source verticies and the columns are the target verticies.  The values in the matrix are the weights between the two verticies, if they are immediately adjacent and connected.  For example, if vertex I has vertex J as one of its edges, with weight 10, element [I, J] = 10.  We only look at the edges of the target vertex, that is we are only interested in verticies that are immediately adjacent and connected.  If two verticies are not connected and adjacent, then that value in the matrix is set to `INF`, which we define as 10 more than the sum of all weights in the graph.  The diagonal of the adjacency matrix is 0, since the weight between a vertex and itself is 0.  We call this adjacency matrix a cost matrix in the code.
+ 
+After creating the adjacency/cost matrix, we implement Dijkstra's algorithm.  The source vertex is the initial vertex and the distance to a vertex is referenced from the initial vertex, `v1`.  We compare the distance between verticies to determine if one path is shorter than another.  We thus initialize the distance vector (which compares the distance to every vertex from `v1`) to `INF`, as defined above.  The initial vertex has distance 0 to begin.  We set the source vertex  `v1` as the current vertex and initialize all the other verticies as unvisited.  For this algorithm, we never revisit verticies, so once we consider a vertex as the current vertex, we cannot go back to it.  On each iteration of the loop, we look at the distance from the current vertex to all other unvisited verticies.  If the new distance between the current vertex and another vertex is less than the previous distance (which was initialized to `INF`), we update the current distance with this new shortest distance. 
+ 
+After all verticies are visited from the initial vertex, the initial vertex is marked as visited and we do not consider it again.  If the target vertex has been visited, the algorithm stops.  If `v2` (the target vertex) has not yet been visited, then we select the next unvisited node with the smallest current distance and use that vertex as the new current vertex.  The algorithm repeats until we reach `v2`, the target vertex.  We keep track of each current vertex and then return this list of vertices from the function, as this is the shortest path between `v1` and `v2`.
+
+Note:  Thus, the way that our algorithm is structured does not allow for figure eight graphs, since we do not consider verticies again once we have already visited them.  Thus, the case when 'v1' = 'v2' is implemented as a special case, and looks at whether 'v1' is connected to itself by the shortest path, or if another vertex in the graph needs to be moved through first before revisiting 'v1'.
+ 
+Examples:
+ 
+Consider `graph12` below:
+ 
+```{r}
+graph12 = list(A = list(edges   = c(2L),
+                        weights = c(14)),
+              B = list(edges   = c(3L,4L),
+                        weights = c(23,13)),
+              D = list(edges   = c(1L),
+                        weights = c(5) ),
+              F = list(edges   = c(1L,5L),
+                        weights = c(43,33)),
+              N = list(edges   = c(1L,2L,4L),
+                        weights = c(33,22,11))
+              )
+```
+ 
+We first find the shortest path between verticies `"D"` and `"F"`.
+ 
+```{r}
+shortest_path(graph12, "D", "F")
+```
+ 
+In this case, the only path between `"D"` and `"F"` is `"D" "A" "B" "F"`, which is what is returned by `shortest_path(graph11, "D", "F")`.  There are two possible paths between `"N"` and `"B"` in `graph11`: either the shortest path `"N" "B"` or a longer path, `"N" "F" "A" "B"`.  As expected, `shortest_path(graph11, "N", "B")` returns `"N" "B"`. 
+```{r}
+shortest_path(graph11, "N", "B")
+```
+ 
+If we update `graph12` by changing the weights of the edges to 1 (for the edges between `"N"` and `"F"`, `"F"` and `"A"`, and `"A"` and `"B"`, for example), however, we can make `"N" "F" "A" "B"` be the shortest path.  We get this result if we run `shortest_path(graph11.new, "N", "B")` again.
+ 
+```{r}
+graph12.new = list(A = list(edges   = c(2L),
+                        weights = c(1)),
+                  B = list(edges   = c(3L,4L),
+                        weights = c(23,13)),
+                  D = list(edges   = c(1L),
+                        weights = c(5) ),
+                  F = list(edges   = c(1L,5L),
+                        weights = c(1,33)),
+                  N = list(edges   = c(1L,2L,4L),
+                        weights = c(33,22,1))
+                  )
+shortest_path(graph12.new, "N", "B")
+```
+ 
+Finally, if we consider two verticies that are unconnected, for example from `"F"` to `"A"` in `graph13`, we get a `NULL` vector returned, since no path exists between these two verticies.
+ 
+```{r}
+graph13 = list(A = list(edges   = c(2L),
+                        weights = c(1 )),
+               B = list(edges   = c(3L),
+                        weights = c(1 )),
+               C = list(edges   = c(5L),
+                        weights = c(1 )),
+               D = list(edges   = c(2L),
+                        weights = c(1 )),
+               E = list(edges   = c(4L,6L),
+                        weights = c(1,1  )),
+               F = list(edges   = c(),
+                        weights = c())
+              )
+ shortest_path(graph13, "F", "A")
+```
